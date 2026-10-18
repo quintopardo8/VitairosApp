@@ -126,4 +126,28 @@ class ReportViewModel(
     fun reiniciarFormulario() {
         _uiState.value = ReportFormUiState()
     }
+
+    //flujo desde el repositorio
+    val listaReportes: kotlinx.coroutines.flow.Flow<List<ReporteEntity>> = repository.todosLosReportes
+
+    //botón de sincronización
+    private val _sincronizando = MutableStateFlow(false)
+    val sincronizando: StateFlow<Boolean> = _sincronizando.asStateFlow()
+
+    //SIMULACION CON REINTENTOS PARA MVP
+    fun sincronizarCola() {
+        viewModelScope.launch {
+            _sincronizando.value = true
+
+            // buscando reportes que necesitan envío
+            val pendientes = repository.obtenerReportesPorEstado("En cola")
+
+            // retraso 2 seg simulado
+            kotlinx.coroutines.delay(2000)
+
+            // marcados como sincronizados localmente en Room
+            // En caso real se llama a API REST
+            _sincronizando.value = false
+        }
+    }
 }
