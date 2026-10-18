@@ -1,23 +1,28 @@
 package com.vitairos.app.ui.screens
 
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitairos.app.ui.theme.*
 import com.vitairos.app.viewmodel.ReportViewModel
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,12 +30,29 @@ fun NewReportScreen(
     viewModel: ReportViewModel,
     onNavigateBack: () -> Unit
 ) {
-
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var expandirTipo by remember { mutableStateOf(false) }
     var expandirProceso by remember { mutableStateOf(false) }
+
+    var uriFotoTemporal by remember { mutableStateOf<Uri?>(null) }
+
+    val camaraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { capturaExitosa ->
+        if (capturaExitosa && uriFotoTemporal != null) {
+            viewModel.onArchivoSeleccionado(uriFotoTemporal.toString())
+        }
+    }
+
+    val galeriaLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uriSeleccionada ->
+        uriSeleccionada?.let {
+            viewModel.onArchivoSeleccionado(it.toString())
+        }
+    }
 
     LaunchedEffect(state.guardadoExitoso) {
         if (state.guardadoExitoso) {
@@ -70,7 +92,7 @@ fun NewReportScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Selector tipo reporte
+            // selector tipo reporte
             ExposedDropdownMenuBox(
                 expanded = expandirTipo,
                 onExpandedChange = { expandirTipo = !expandirTipo }
@@ -113,7 +135,7 @@ fun NewReportScreen(
                 }
             }
 
-            // Selector proceso
+            // selector proceso
             ExposedDropdownMenuBox(
                 expanded = expandirProceso,
                 onExpandedChange = { expandirProceso = !expandirProceso }
@@ -156,7 +178,7 @@ fun NewReportScreen(
                 }
             }
 
-            // Area o faena
+            // area o faena
             OutlinedTextField(
                 value = state.areaFaena,
                 onValueChange = { viewModel.onAreaFaenaCambiada(it) },
@@ -171,7 +193,7 @@ fun NewReportScreen(
                 )
             )
 
-            // Turno
+            // turno
             OutlinedTextField(
                 value = state.turno,
                 onValueChange = { viewModel.onTurnoCambiado(it) },
@@ -186,7 +208,7 @@ fun NewReportScreen(
                 )
             )
 
-            // Observaciones
+            // observaciones
             OutlinedTextField(
                 value = state.observaciones,
                 onValueChange = { viewModel.onObservacionesCambiadas(it) },
@@ -203,45 +225,71 @@ fun NewReportScreen(
                 )
             )
 
-            // Evidencia documental (Ruta de archivo)
+            // evidencia documental
             Card(
                 colors = CardDefaults.cardColors(containerColor = VitairosSurfaceDark),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Evidencia Adjunta *",
+                        text = "Evidencia Fotográfica *",
                         style = MaterialTheme.typography.titleMedium,
                         color = VitairosTextPrimary
                     )
 
                     if (state.rutaArchivoLocal.isNotBlank()) {
                         Text(
-                            text = "Archivo seleccionado: ${state.rutaArchivoLocal.takeLast(30)}...",
+                            text = "Adjunto: ${state.rutaArchivoLocal.takeLast(35)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = VitairosTealPrimary
                         )
                     } else {
                         Text(
-                            text = "No se ha adjuntado ninguna evidencia obligatoria.",
+                            text = "Adjunte al menos una fotografía o archivo de respaldo.",
                             style = MaterialTheme.typography.bodySmall,
                             color = VitairosTextSecondary
                         )
                     }
 
-                    // Botón simular selección de archivo
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.onArchivoSeleccionado("content://vitairos/evidencia_terreno_${System.currentTimeMillis()}.jpg")
-                        },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = VitairosTealPrimary)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.AttachFile, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Adjuntar Evidencia (Simulada)")
+                        // botón cámara
+                        OutlinedButton(
+                            onClick = {
+                                val archivo = File(context.filesDir, "evidencia_${System.currentTimeMillis()}.jpg")
+                                val uri = FileProvider.getUriForFile(
+                                    context,
+                                    "com.vitairos.app.fileprovider",
+                                    archivo
+                                )
+                                uriFotoTemporal = uri
+                                camaraLauncher.launch(uri)
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = VitairosTealPrimary)
+                        ) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Cámara")
+                        }
+
+                        // botón galería
+                        OutlinedButton(
+                            onClick = {
+                                galeriaLauncher.launch("image/*")
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = VitairosTealPrimary)
+                        ) {
+                            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Galería")
+                        }
                     }
 
                     state.errorAdjunto?.let {
@@ -252,7 +300,7 @@ fun NewReportScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Botón guardar reporte en cola
+            // botón guardar en cola local
             Button(
                 onClick = { viewModel.guardarReporte() },
                 enabled = state.esFormularioValido && !state.estaGuardando,
