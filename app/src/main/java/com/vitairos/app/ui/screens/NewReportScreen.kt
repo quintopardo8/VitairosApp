@@ -19,6 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
+import android.Manifest
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitairos.app.ui.theme.*
 import com.vitairos.app.viewmodel.ReportViewModel
@@ -45,6 +48,25 @@ fun NewReportScreen(
             viewModel.onArchivoSeleccionado(uriFotoTemporal.toString())
         }
     }
+
+    val permisoCamaraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { concedido ->
+        if (concedido) {
+            val archivo = File(context.filesDir, "evidencia_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(
+                context,
+                "com.vitairos.app.fileprovider",
+                archivo
+            )
+            uriFotoTemporal = uri
+            camaraLauncher.launch(uri)
+        } else {
+            Toast.makeText(context, "Se necesita el permiso de cámara para adjuntar evidencia", Toast.LENGTH_LONG).show()
+        }
+    }
+
+
 
     val galeriaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -261,14 +283,23 @@ fun NewReportScreen(
                         // botón cámara
                         OutlinedButton(
                             onClick = {
-                                val archivo = File(context.filesDir, "evidencia_${System.currentTimeMillis()}.jpg")
-                                val uri = FileProvider.getUriForFile(
+                                val tienePermiso = ContextCompat.checkSelfPermission(
                                     context,
-                                    "com.vitairos.app.fileprovider",
-                                    archivo
-                                )
-                                uriFotoTemporal = uri
-                                camaraLauncher.launch(uri)
+                                    Manifest.permission.CAMERA
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                                if (tienePermiso) {
+                                    val archivo = File(context.filesDir, "evidencia_${System.currentTimeMillis()}.jpg")
+                                    val uri = FileProvider.getUriForFile(
+                                        context,
+                                        "com.vitairos.app.fileprovider",
+                                        archivo
+                                    )
+                                    uriFotoTemporal = uri
+                                    camaraLauncher.launch(uri)
+                                } else {
+                                    permisoCamaraLauncher.launch(Manifest.permission.CAMERA)
+                                }
                             },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = VitairosTealPrimary)
