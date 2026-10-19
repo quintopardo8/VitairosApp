@@ -1,5 +1,7 @@
 package com.vitairos.app.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -7,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -15,14 +18,17 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import androidx.core.content.ContextCompat
-import android.content.pm.PackageManager
-import android.Manifest
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.vitairos.app.ui.theme.*
 import com.vitairos.app.viewmodel.ReportViewModel
 import java.io.File
@@ -62,11 +68,9 @@ fun NewReportScreen(
             uriFotoTemporal = uri
             camaraLauncher.launch(uri)
         } else {
-            Toast.makeText(context, "Se necesita el permiso de cámara para adjuntar evidencia", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Se necesita permiso de cámara para adjuntar evidencia", Toast.LENGTH_LONG).show()
         }
     }
-
-
 
     val galeriaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -254,23 +258,54 @@ fun NewReportScreen(
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Evidencia Fotográfica *",
+                        text = "Evidencia Fotográfica / Documento *",
                         style = MaterialTheme.typography.titleMedium,
                         color = VitairosTextPrimary
                     )
 
                     if (state.rutaArchivoLocal.isNotBlank()) {
-                        Text(
-                            text = "Adjunto: ${state.rutaArchivoLocal.takeLast(35)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = VitairosTealPrimary
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(VitairosDarkBackground)
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(state.rutaArchivoLocal)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Vista previa de la evidencia capturada",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Archivo: ...${state.rutaArchivoLocal.takeLast(25)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = VitairosTealPrimary
+                            )
+
+                            TextButton(
+                                onClick = { viewModel.onArchivoSeleccionado("") },
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Quitar / Repetir")
+                            }
+                        }
                     } else {
                         Text(
-                            text = "Adjunte al menos una fotografía o archivo de respaldo.",
+                            text = "Capture una fotografía o adjunte un documento legible de respaldo para habilitar el guardado.",
                             style = MaterialTheme.typography.bodySmall,
                             color = VitairosTextSecondary
                         )
@@ -280,7 +315,6 @@ fun NewReportScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // botón cámara
                         OutlinedButton(
                             onClick = {
                                 val tienePermiso = ContextCompat.checkSelfPermission(
@@ -306,10 +340,9 @@ fun NewReportScreen(
                         ) {
                             Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Cámara")
+                            Text(if (state.rutaArchivoLocal.isBlank()) "Cámara" else "Reemplazar")
                         }
 
-                        // botón galería
                         OutlinedButton(
                             onClick = {
                                 galeriaLauncher.launch("image/*")

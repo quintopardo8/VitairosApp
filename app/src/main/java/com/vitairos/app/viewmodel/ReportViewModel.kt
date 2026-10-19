@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vitairos.app.data.model.ReporteEntity
 import com.vitairos.app.repository.ReporteRepository
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +22,23 @@ class ReportViewModel(
     private val _uiState = MutableStateFlow(ReportFormUiState())
     val uiState: StateFlow<ReportFormUiState> = _uiState.asStateFlow()
 
+    val usuariosDisponibles = listOf(
+        "Carlos Mendoza - Op. Faena A",
+        "Ana Soto - Op. Faena B",
+        "Jorge Valenzuela - Mantención Mecánica",
+        "Marcela Gómez - Prevención de Riesgos"
+    )
+
+    private val _usuarioActivo = MutableStateFlow(usuariosDisponibles.first())
+    val usuarioActivo: StateFlow<String> = _usuarioActivo.asStateFlow()
+
+    fun seleccionarUsuario(usuario: String) {
+        _usuarioActivo.value = usuario
+        _uiState.update { it.copy(nombreUsuario = usuario) }
+    }
+
+    val listaReportes: Flow<List<ReporteEntity>> = repository.todosLosReportes
+
     val tiposDeReporte = listOf(
         "Reporte de Turno",
         "Mantención Preventiva",
@@ -35,8 +54,8 @@ class ReportViewModel(
     )
 
     fun onTipoReporteCambiado(nuevoTipo: String) {
-        _uiState.update { estadoActual ->
-            estadoActual.copy(
+        _uiState.update {
+            it.copy(
                 tipoReporte = nuevoTipo,
                 errorTipo = if (nuevoTipo.isBlank()) "Debe seleccionar un tipo de reporte" else null
             )
@@ -44,8 +63,8 @@ class ReportViewModel(
     }
 
     fun onProcesoCambiado(nuevoProceso: String) {
-        _uiState.update { estadoActual ->
-            estadoActual.copy(
+        _uiState.update {
+            it.copy(
                 procesoAsociado = nuevoProceso,
                 errorProceso = if (nuevoProceso.isBlank()) "Debe seleccionar un proceso operacional" else null
             )
@@ -65,43 +84,29 @@ class ReportViewModel(
     }
 
     fun onArchivoSeleccionado(rutaUri: String) {
-        _uiState.update { estadoActual ->
-            estadoActual.copy(
+        _uiState.update {
+            it.copy(
                 rutaArchivoLocal = rutaUri,
                 errorAdjunto = if (rutaUri.isBlank()) "Debe adjuntar al menos una evidencia documental" else null
             )
         }
     }
 
-    // guardado en room
     fun guardarReporte() {
         val estado = _uiState.value
-
-        // validacion antes de
-        if (!estado.esFormularioValido) {
-            _uiState.update {
-                it.copy(
-                    errorTipo = if (it.tipoReporte.isBlank()) "Campo requerido" else null,
-                    errorProceso = if (it.procesoAsociado.isBlank()) "Campo requerido" else null,
-                    errorAdjunto = if (it.rutaArchivoLocal.isBlank()) "Adjunto requerido" else null
-                )
-            }
-            return
-        }
+        if (!estado.esFormularioValido) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(estaGuardando = true) }
 
-            // formateo fecha
             val formatoFecha = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             val fechaActual = formatoFecha.format(Date())
 
-            // crear la entidad
             val nuevoReporte = ReporteEntity(
                 tipoReporte = estado.tipoReporte,
                 procesoAsociado = estado.procesoAsociado,
                 fechaHora = fechaActual,
-                usuario = estado.nombreUsuario,
+                usuario = _usuarioActivo.value,
                 areaFaena = estado.areaFaena,
                 turno = estado.turno,
                 observaciones = estado.observaciones,
@@ -112,7 +117,6 @@ class ReportViewModel(
 
             repository.guardarReporte(nuevoReporte)
 
-            // ACTUalizar estado para feedback visual
             _uiState.update {
                 it.copy(
                     estaGuardando = false,
@@ -122,32 +126,40 @@ class ReportViewModel(
         }
     }
 
-
     fun reiniciarFormulario() {
-        _uiState.value = ReportFormUiState()
+        _uiState.value = ReportFormUiState(nombreUsuario = _usuarioActivo.value)
     }
 
-    //flujo desde el repositorio
-    val listaReportes: kotlinx.coroutines.flow.Flow<List<ReporteEntity>> = repository.todosLosReportes
-
-    //botón de sincronización
     private val _sincronizando = MutableStateFlow(false)
     val sincronizando: StateFlow<Boolean> = _sincronizando.asStateFlow()
 
-    //SIMULACION CON REINTENTOS PARA MVP
     fun sincronizarCola() {
         viewModelScope.launch {
             _sincronizando.value = true
 
-            // buscando reportes que necesitan envío
             val pendientes = repository.obtenerReportesPorEstado("En cola")
 
-            // retraso 2 seg simulado
-            kotlinx.coroutines.delay(2000)
+            pendientes.forEach { reporte ->
+                repository.actualizarReporte(reporte.copy(estado = "Enviando"))
+                delay(1200)
 
-            // marcados como sincronizados localmente en Room
-            // En caso real se llama a API REST
+                repository.actualizarReporte(
+                    reporte.copy(
+                        estado = "Sincronizado",
+                        intentos = reporte.intentos + 1
+                    )
+                )
+            }
+
             _sincronizando.value = false
+        }
+    }
+
+    fun eliminarReporte(reporte: ReporteEntity) {
+        if (reporte.estado != "Sincronizado") {
+            viewModelScope.launch {
+                repository.eliminarReporte(reporte)
+            }
         }
     }
 }
