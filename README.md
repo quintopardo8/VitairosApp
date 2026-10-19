@@ -125,10 +125,9 @@ Requisitos: Android Studio (versión reciente con soporte para AGP 9.x), JDK 11 
 
 ## Equipo
 
-Sebastián Pardo
-Aarón Perez
+Sebastián Pardo / Aarón Perez
 
 Docente: Javier Sánchez 
 ---
 
-Proyecto académico · Duoc UC · 2026
+Proyecto académico / Duoc UC / 2026
