@@ -1,5 +1,6 @@
 package com.vitairos.app.data.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
@@ -17,5 +18,8 @@ data class ReporteEntity(
     val observaciones: String = "",
     val rutaArchivoLocal: String,
     val estado: String = "Borrador",
-    val intentos: Int = 0
+    val intentos: Int = 0,
+    @ColumnInfo(defaultValue = "''") val fechaUltimoIntento: String = "",
+    @ColumnInfo(defaultValue = "''") val fechaSincronizacion: String = "",
+    @ColumnInfo(defaultValue = "''") val ultimoError: String = ""
 )

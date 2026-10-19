@@ -1,30 +1,34 @@
 package com.vitairos.app.viewmodel
 
 data class ReportFormUiState(
-
     val tipoReporte: String = "",
     val procesoAsociado: String = "",
     val areaFaena: String = "",
     val turno: String = "",
     val observaciones: String = "",
-    val rutaArchivoLocal: String = "",
-    val nombreUsuario: String = "Operador Terreno 01",
-
+    val adjuntos: List<String> = emptyList(),
+    val confirmaLegibilidad: Boolean = false,
+    val nombreUsuario: String = "",
+    val editandoId: String? = null,
 
     val errorTipo: String? = null,
     val errorProceso: String? = null,
+    val errorArea: String? = null,
+    val errorTurno: String? = null,
+    val errorObservaciones: String? = null,
     val errorAdjunto: String? = null,
+    val errorConfirmacion: String? = null,
 
     val estaGuardando: Boolean = false,
-    val guardadoExitoso: Boolean = false,
-    val mensajeErrorGeneral: String? = null
+    val guardadoExitoso: Boolean = false
 ) {
+    /** Valor que se guarda en la columna rutaArchivoLocal de Room. */
+    val rutaArchivoLocal: String
+        get() = adjuntos.joinToString("|")
 
-    val esFormularioValido: Boolean
-        get() = tipoReporte.isNotBlank() &&
-                procesoAsociado.isNotBlank() &&
-                rutaArchivoLocal.isNotBlank() &&
-                errorTipo == null &&
-                errorProceso == null &&
-                errorAdjunto == null
+    val hayErrores: Boolean
+        get() = listOf(
+            errorTipo, errorProceso, errorArea, errorTurno,
+            errorObservaciones, errorAdjunto, errorConfirmacion
+        ).any { it != null }
 }

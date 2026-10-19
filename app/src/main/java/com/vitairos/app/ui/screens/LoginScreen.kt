@@ -13,6 +13,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitairos.app.ui.theme.*
 import com.vitairos.app.viewmodel.ReportViewModel
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.vitairos.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,11 +43,13 @@ fun LoginScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = null,
-                    tint = VitairosTealPrimary,
-                    modifier = Modifier.size(60.dp)
+                Image(
+                    painter = painterResource(id = R.drawable.vitairos),
+                    contentDescription = "Logo VITAIROS",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp)
                 )
 
                 Text(

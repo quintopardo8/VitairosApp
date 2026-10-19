@@ -1,10 +1,21 @@
 package com.vitairos.app.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Dashboard
@@ -12,18 +23,57 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vitairos.app.data.model.Estados
 import com.vitairos.app.data.model.ReporteEntity
-import com.vitairos.app.ui.theme.*
+import com.vitairos.app.ui.components.RecogerMensajes
+import com.vitairos.app.ui.components.TarjetaReporte
+import com.vitairos.app.ui.theme.StatusError
+import com.vitairos.app.ui.theme.StatusQueued
+import com.vitairos.app.ui.theme.StatusSynced
+import com.vitairos.app.ui.theme.VitairosDarkBackground
+import com.vitairos.app.ui.theme.VitairosSurfaceDark
+import com.vitairos.app.ui.theme.VitairosTealPrimary
+import com.vitairos.app.ui.theme.VitairosTextPrimary
+import com.vitairos.app.ui.theme.VitairosTextSecondary
 import com.vitairos.app.viewmodel.ReportViewModel
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.vitairos.app.R
 
 enum class DashboardTab(val titulo: String, val icono: ImageVector) {
     RESUMEN("Inicio", Icons.Default.Dashboard),
@@ -36,6 +86,7 @@ enum class DashboardTab(val titulo: String, val icono: ImageVector) {
 fun DashboardScreen(
     viewModel: ReportViewModel,
     onNavigateToNewReport: () -> Unit,
+    onOpenDetail: (String) -> Unit,
     onLogout: () -> Unit
 ) {
     var pestañaActual by remember { mutableStateOf(DashboardTab.RESUMEN) }
@@ -43,15 +94,36 @@ fun DashboardScreen(
     val listaReportes by viewModel.listaReportes.collectAsStateWithLifecycle(initialValue = emptyList())
     val sincronizando by viewModel.sincronizando.collectAsStateWithLifecycle()
     val operadorActual by viewModel.usuarioActivo.collectAsStateWithLifecycle()
+    val hayConexion by viewModel.hayConexion.collectAsStateWithLifecycle()
+    val sinConexionSimulada by viewModel.sinConexionSimulada.collectAsStateWithLifecycle()
 
-    val reportesEnCola = listaReportes.filter { it.estado == "En cola" || it.estado == "Enviando" }
-    val reportesSincronizados = listaReportes.filter { it.estado == "Sincronizado" }
-    val reportesConError = listaReportes.filter { it.estado == "Error" }
+    val snackbarHost = remember { SnackbarHostState() }
+    RecogerMensajes(viewModel, snackbarHost)
+
+    val reportesEnCola = listaReportes.filter {
+        it.estado == Estados.EN_COLA || it.estado == Estados.ENVIANDO
+    }
+    val reportesSincronizados = listaReportes.filter { it.estado == Estados.SINCRONIZADO }
+    val reportesConError = listaReportes.filter { it.estado == Estados.ERROR }
+    val reportesPendientes = listaReportes.filter { it.estado != Estados.SINCRONIZADO }
+    val hayParaSincronizar = listaReportes.any {
+        it.estado == Estados.EN_COLA || it.estado == Estados.ERROR
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+
+                    }
+                        Image(
+                            painter = painterResource(id = R.drawable.vitairos),
+                            contentDescription = "Logo VITAIROS",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.height(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
                             text = "VITAIROS Industrial AI",
@@ -66,9 +138,18 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    if (!hayConexion) {
+                        Icon(
+                            imageVector = Icons.Default.WifiOff,
+                            contentDescription = "Sin conexión",
+                            tint = StatusQueued,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
+
                     IconButton(
                         onClick = { viewModel.sincronizarCola() },
-                        enabled = !sincronizando && (reportesEnCola.isNotEmpty() || reportesConError.isNotEmpty())
+                        enabled = !sincronizando && hayParaSincronizar
                     ) {
                         if (sincronizando) {
                             CircularProgressIndicator(
@@ -80,7 +161,7 @@ fun DashboardScreen(
                             Icon(
                                 imageVector = Icons.Default.Sync,
                                 contentDescription = "Sincronizar",
-                                tint = if (reportesEnCola.isNotEmpty() || reportesConError.isNotEmpty()) VitairosTealPrimary else VitairosTextSecondary
+                                tint = if (hayParaSincronizar) VitairosTealPrimary else VitairosTextSecondary
                             )
                         }
                     }
@@ -93,15 +174,11 @@ fun DashboardScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = VitairosSurfaceDark
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = VitairosSurfaceDark)
             )
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = VitairosSurfaceDark
-            ) {
+            NavigationBar(containerColor = VitairosSurfaceDark) {
                 DashboardTab.entries.forEach { tab ->
                     NavigationBarItem(
                         selected = pestañaActual == tab,
@@ -114,10 +191,10 @@ fun DashboardScreen(
                             indicatorColor = VitairosTealPrimary,
                             unselectedIconColor = VitairosTextSecondary,
                             unselectedTextColor = VitairosTextSecondary
-                        ))
-
-                    }
+                        )
+                    )
                 }
+            }
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -128,32 +205,46 @@ fun DashboardScreen(
                 Icon(Icons.Default.Add, contentDescription = "Nuevo Reporte")
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHost) },
         containerColor = VitairosDarkBackground
-        ) { paddingValores ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValores)
-            ) {
-                when (pestañaActual) {
-                    DashboardTab.RESUMEN -> VistaResumenDashboard(
-                        enColaCount = reportesEnCola.size,
-                        sincronizadosCount = reportesSincronizados.size,
-                        errorCount = reportesConError.size,
-                        onCrearReporte = onNavigateToNewReport,
-                        onSincronizar = { viewModel.sincronizarCola() },
-                        sincronizando = sincronizando
-                    )
-                    DashboardTab.COLA -> VistaCola(
-                        reportes = reportesEnCola + reportesConError,
-                        onEliminar = { viewModel.eliminarReporte(it) }
-                    )
-                    DashboardTab.HISTORIAL -> VistaHistorial(
-                        reportes = reportesSincronizados
-                    )
-                }
+    ) { paddingValores ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValores)
+        ) {
+            when (pestañaActual) {
+                DashboardTab.RESUMEN -> VistaResumenDashboard(
+                    enColaCount = reportesEnCola.size,
+                    sincronizadosCount = reportesSincronizados.size,
+                    errorCount = reportesConError.size,
+                    hayConexion = hayConexion,
+                    sinConexionSimulada = sinConexionSimulada,
+                    sincronizando = sincronizando,
+                    hayParaSincronizar = hayParaSincronizar,
+                    onCrearReporte = onNavigateToNewReport,
+                    onSincronizar = { viewModel.sincronizarCola() },
+                    onAlternarConexion = { viewModel.alternarConexionSimulada() }
+                )
+
+                DashboardTab.COLA -> VistaListaReportes(
+                    reportes = reportesPendientes,
+                    mensajeVacio = "No hay reportes pendientes en la cola.",
+                    permiteEliminar = true,
+                    onOpenDetail = onOpenDetail,
+                    onEliminar = { viewModel.eliminarReporte(it) }
+                )
+
+                DashboardTab.HISTORIAL -> VistaListaReportes(
+                    reportes = listaReportes,
+                    mensajeVacio = "Aún no hay reportes creados.",
+                    permiteEliminar = false,
+                    onOpenDetail = onOpenDetail,
+                    onEliminar = {}
+                )
             }
         }
+    }
 }
 
 @Composable
@@ -161,13 +252,18 @@ fun VistaResumenDashboard(
     enColaCount: Int,
     sincronizadosCount: Int,
     errorCount: Int,
+    hayConexion: Boolean,
+    sinConexionSimulada: Boolean,
+    sincronizando: Boolean,
+    hayParaSincronizar: Boolean,
     onCrearReporte: () -> Unit,
     onSincronizar: () -> Unit,
-    sincronizando: Boolean
+    onAlternarConexion: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -181,27 +277,50 @@ fun VistaResumenDashboard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            TarjetaMetrica(
-                titulo = "En Cola",
-                valor = enColaCount.toString(),
-                color = StatusQueued,
-                modifier = Modifier.weight(1f)
-            )
-            TarjetaMetrica(
-                titulo = "Sincronizados",
-                valor = sincronizadosCount.toString(),
-                color = StatusSynced,
-                modifier = Modifier.weight(1f)
-            )
-            TarjetaMetrica(
-                titulo = "Errores",
-                valor = errorCount.toString(),
-                color = StatusError,
-                modifier = Modifier.weight(1f)
-            )
+            TarjetaMetrica("En Cola", enColaCount.toString(), StatusQueued, Modifier.weight(1f))
+            TarjetaMetrica("Sincronizados", sincronizadosCount.toString(), StatusSynced, Modifier.weight(1f))
+            TarjetaMetrica("Errores", errorCount.toString(), StatusError, Modifier.weight(1f))
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = VitairosSurfaceDark),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Simular sin conexión",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = VitairosTextPrimary
+                    )
+                    Text(
+                        text = if (hayConexion)
+                            "Conectado: los envíos llegan a la API mock."
+                        else
+                            "Sin conexión: los reportes quedan en cola y se reintenta (5, 15 y 30 s).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (hayConexion) VitairosTextSecondary else StatusQueued
+                    )
+                }
+                Switch(
+                    checked = sinConexionSimulada,
+                    onCheckedChange = { onAlternarConexion() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = VitairosDarkBackground,
+                        checkedTrackColor = StatusQueued
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
 
         Button(
             onClick = onCrearReporte,
@@ -220,18 +339,22 @@ fun VistaResumenDashboard(
 
         OutlinedButton(
             onClick = onSincronizar,
-            enabled = !sincronizando && (enColaCount > 0 || errorCount > 0),
+            enabled = !sincronizando && hayParaSincronizar,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = VitairosTealPrimary)
         ) {
             if (sincronizando) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = VitairosTealPrimary)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = VitairosTealPrimary,
+                    strokeWidth = 2.dp
+                )
             } else {
                 Icon(Icons.Default.Sync, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Sincronizar Cola Ahora")
+                Text("Sincronizar / Reintentar Ahora")
             }
         }
     }
@@ -259,13 +382,16 @@ fun TarjetaMetrica(
 }
 
 @Composable
-fun VistaCola(
+fun VistaListaReportes(
     reportes: List<ReporteEntity>,
+    mensajeVacio: String,
+    permiteEliminar: Boolean,
+    onOpenDetail: (String) -> Unit,
     onEliminar: (ReporteEntity) -> Unit
 ) {
     if (reportes.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No hay reportes pendientes en la cola.", color = VitairosTextSecondary)
+            Text(mensajeVacio, color = VitairosTextSecondary)
         }
     } else {
         LazyColumn(
@@ -273,156 +399,15 @@ fun VistaCola(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
+            contentPadding = PaddingValues(top = 16.dp, bottom = 88.dp)
         ) {
             items(reportes, key = { it.id }) { reporte ->
-                TarjetaReporteLocal(
+                TarjetaReporte(
                     reporte = reporte,
-                    permiteEliminar = true,
+                    permiteEliminar = permiteEliminar,
+                    onClick = { onOpenDetail(reporte.id) },
                     onEliminar = { onEliminar(reporte) }
                 )
-            }
-        }
-    }
-}
-
-@Composable
-fun VistaHistorial(reportes: List<ReporteEntity>) {
-    if (reportes.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No hay reportes sincronizados en el historial.", color = VitairosTextSecondary)
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            items(reportes, key = { it.id }) { reporte ->
-                TarjetaReporteLocal(
-                    reporte = reporte,
-                    permiteEliminar = false,
-                    onEliminar = {}
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun TarjetaReporteLocal(
-    reporte: ReporteEntity,
-    permiteEliminar: Boolean,
-    onEliminar: () -> Unit
-) {
-    var mostrarConfirmacion by remember { mutableStateOf(false) }
-
-    val colorBadge = when (reporte.estado) {
-        "Sincronizado" -> StatusSynced
-        "Enviando" -> StatusSending
-        "Error" -> StatusError
-        "En cola" -> StatusQueued
-        else -> StatusDraft
-    }
-
-    if (mostrarConfirmacion) {
-        AlertDialog(
-            onDismissRequest = { mostrarConfirmacion = false },
-            title = { Text("Eliminar reporte", color = VitairosTextPrimary) },
-            text = { Text("¿Desea eliminar este reporte en cola? Esta acción no se puede deshacer.", color = VitairosTextSecondary) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarConfirmacion = false
-                        onEliminar()
-                    }
-                ) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarConfirmacion = false }) {
-                    Text("Cancelar", color = VitairosTextPrimary)
-                }
-            },
-            containerColor = VitairosSurfaceDark
-        )
-    }
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = VitairosSurfaceDark),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = reporte.tipoReporte,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = VitairosTextPrimary
-                )
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(colorBadge.copy(alpha = 0.2f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = reporte.estado,
-                        color = colorBadge,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-            }
-
-            Text(
-                text = "Proceso: ${reporte.procesoAsociado}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = VitairosTextSecondary
-            )
-
-            Text(
-                text = "Operador: ${reporte.usuario}",
-                style = MaterialTheme.typography.bodySmall,
-                color = VitairosTextSecondary
-            )
-
-            if (reporte.areaFaena.isNotBlank()) {
-                Text(
-                    text = "Área: ${reporte.areaFaena}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VitairosTextSecondary
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = reporte.fechaHora,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VitairosTextSecondary
-                )
-
-                if (permiteEliminar && reporte.estado != "Sincronizado" && reporte.estado != "Enviando") {
-                    TextButton(
-                        onClick = { mostrarConfirmacion = true },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("Eliminar")
-                    }
-                }
             }
         }
     }
