@@ -6,14 +6,19 @@ import com.vitairos.app.data.model.Estados
 import com.vitairos.app.data.model.ReporteEntity
 import com.vitairos.app.data.model.rutasAdjuntos
 import com.vitairos.app.data.network.ConexionObserver
+import com.vitairos.app.data.remote.ElevationApiService
+import com.vitairos.app.data.remote.GeoJsonPointDto
+import com.vitairos.app.data.remote.ReporteRemoteDto
+import com.vitairos.app.data.remote.RetrofitClientProvider
+import com.vitairos.app.data.remote.VitairosApiService
 import com.vitairos.app.repository.ReporteRepository
 import com.vitairos.app.util.ArchivoUtils
+import com.vitairos.app.util.CoordenadasActuales
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,12 +29,20 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class ReportViewModel(private val repository: ReporteRepository, conexion: ConexionObserver) : ViewModel() {
+class ReportViewModel(
+    private val repository: ReporteRepository,
+    conexion: ConexionObserver,
+    private val obtenerCoordenadas: suspend () -> CoordenadasActuales? = { null },
+    private val apiService: VitairosApiService = RetrofitClientProvider.crearVitairosService(),
+    private val elevationService: ElevationApiService = RetrofitClientProvider.elevationService
+) : ViewModel() {
+
     private val _mensajes = Channel<String>(Channel.BUFFERED)
     val mensajes: Flow<String> = _mensajes.receiveAsFlow()
 
@@ -64,7 +77,6 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
 
     val listaReportes: Flow<List<ReporteEntity>> = repository.todosLosReportes
 
-
     private val _uiState = MutableStateFlow(ReportFormUiState(nombreUsuario = _usuarioActivo.value))
     val uiState: StateFlow<ReportFormUiState> = _uiState.asStateFlow()
 
@@ -76,7 +88,6 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
             it.copy(
                 tipoReporte = nuevoTipo,
                 errorTipo = ValidadorReporte.tipo(nuevoTipo),
-                // al cambiar el tipo cambian las reglas condicionales
                 errorArea = null,
                 errorTurno = null,
                 errorObservaciones = null
@@ -115,7 +126,6 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
         _uiState.update { it.copy(confirmaLegibilidad = confirmado, errorConfirmacion = null) }
     }
 
-
     fun agregarAdjunto(ruta: String) {
         _uiState.update {
             if (it.adjuntos.size >= ArchivoUtils.MAX_ADJUNTOS) it
@@ -141,7 +151,6 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
         }
         if (ruta !in adjuntosOriginales) eliminarArchivos(listOf(ruta))
     }
-
 
     fun cargarParaEdicion(id: String) {
         viewModelScope.launch {
@@ -211,6 +220,7 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
             }
 
             val estadoFinal = if (comoBorrador) Estados.BORRADOR else Estados.EN_COLA
+            val coords = obtenerCoordenadas()
 
             if (original != null) {
                 repository.actualizarReporte(
@@ -221,12 +231,14 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
                         turno = formulario.turno,
                         observaciones = formulario.observaciones,
                         rutaArchivoLocal = formulario.rutaArchivoLocal,
-                        estado = estadoFinal
+                        estado = estadoFinal,
+                        latitud = coords?.latitud ?: original.latitud,
+                        longitud = coords?.longitud ?: original.longitud
                     )
                 )
                 eliminarArchivos(adjuntosOriginales - formulario.adjuntos.toSet())
             } else {
-                val fecha = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                val fecha = ahora()
                 repository.guardarReporte(
                     ReporteEntity(
                         tipoReporte = formulario.tipoReporte,
@@ -238,7 +250,10 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
                         observaciones = formulario.observaciones,
                         rutaArchivoLocal = formulario.rutaArchivoLocal,
                         estado = estadoFinal,
-                        intentos = 0
+                        intentos = 0,
+                        latitud = coords?.latitud,
+                        longitud = coords?.longitud,
+                        altitud = null
                     )
                 )
             }
@@ -261,7 +276,6 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
         adjuntosOriginales = emptySet()
         _uiState.value = ReportFormUiState(nombreUsuario = _usuarioActivo.value)
     }
-
 
     fun eliminarReporte(reporte: ReporteEntity) {
         if (reporte.estado == Estados.SINCRONIZADO || reporte.estado == Estados.ENVIANDO) return
@@ -361,6 +375,55 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
     private fun ahora(): String =
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
 
+    private suspend fun intentarEnviarAlBackend(reporte: ReporteEntity): Pair<Boolean, String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                var actual = reporte
+                if (actual.latitud != null && actual.longitud != null && actual.altitud == null) {
+                    val elevResp = elevationService.obtenerAltitud(actual.latitud, actual.longitud)
+                    if (elevResp.isSuccessful) {
+                        val alt = elevResp.body()?.elevation?.firstOrNull()
+                        if (alt != null) {
+                            actual = actual.copy(altitud = alt)
+                            repository.actualizarReporte(actual)
+                        }
+                    }
+                }
+                val dto = actual.toRemoteDto()
+                val resp = apiService.crearReporte(dto)
+                if (resp.isSuccessful) {
+                    true to ""
+                } else {
+                    false to "HTTP ${resp.code()}: ${resp.message()}"
+                }
+            } catch (e: Exception) {
+                false to (e.localizedMessage ?: "Error de red")
+            }
+        }
+    }
+
+    private fun ReporteEntity.toRemoteDto(): ReporteRemoteDto {
+        val punto = if (longitud != null && latitud != null) {
+            GeoJsonPointDto(type = "Point", coordinates = listOf(longitud, latitud))
+        } else {
+            null
+        }
+        return ReporteRemoteDto(
+            id = id,
+            tipoReporte = tipoReporte,
+            procesoAsociado = procesoAsociado,
+            fechaHora = fechaHora,
+            usuario = usuario,
+            areaFaena = areaFaena,
+            turno = turno,
+            observaciones = observaciones,
+            rutaArchivoLocal = rutaArchivoLocal,
+            estado = Estados.SINCRONIZADO,
+            ubicacion = punto,
+            altitud = altitud
+        )
+    }
+
     private suspend fun enviarConReintentos(inicial: ReporteEntity): Boolean {
         var intentos = inicial.intentos
 
@@ -370,9 +433,12 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
                 antes.copy(estado = Estados.ENVIANDO, intentos = intentos, fechaUltimoIntento = ahora())
             )
 
-            delay(1200)
             intentos++
-            val respuestaOk = hayConexion.value
+            val (respuestaOk, detalleError) = if (hayConexion.value) {
+                intentarEnviarAlBackend(antes)
+            } else {
+                false to "Sin conexión con la API"
+            }
 
             val despues = repository.obtenerReportePorId(inicial.id) ?: return false
             if (respuestaOk) {
@@ -391,10 +457,10 @@ class ReportViewModel(private val repository: ReporteRepository, conexion: Conex
                     despues.copy(
                         estado = Estados.EN_COLA,
                         intentos = intentos,
-                        ultimoError = "Sin conexión con la API"
+                        ultimoError = detalleError.ifBlank { "Sin conexión con la API" }
                     )
                 )
-                delay(esperasReintento[i])
+                kotlinx.coroutines.delay(esperasReintento[i])
             }
         }
 
