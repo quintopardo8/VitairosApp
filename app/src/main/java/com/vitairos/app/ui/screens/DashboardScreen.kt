@@ -116,7 +116,7 @@ fun DashboardScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
 
-                    }
+
                         Image(
                             painter = painterResource(id = R.drawable.vitairos),
                             contentDescription = "Logo VITAIROS",
@@ -135,6 +135,7 @@ fun DashboardScreen(
                             color = VitairosTealPrimary,
                             style = MaterialTheme.typography.labelSmall
                         )
+                    }
                     }
                 },
                 actions = {

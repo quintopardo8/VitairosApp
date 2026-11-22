@@ -29,10 +29,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class ReportViewModel(
-    private val repository: ReporteRepository,
-    conexion: ConexionObserver
-) : ViewModel() {
+class ReportViewModel(private val repository: ReporteRepository, conexion: ConexionObserver) : ViewModel() {
     private val _mensajes = Channel<String>(Channel.BUFFERED)
     val mensajes: Flow<String> = _mensajes.receiveAsFlow()
 
