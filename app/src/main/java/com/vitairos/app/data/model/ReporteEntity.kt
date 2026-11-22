@@ -21,5 +21,8 @@ data class ReporteEntity(
     val intentos: Int = 0,
     @ColumnInfo(defaultValue = "''") val fechaUltimoIntento: String = "",
     @ColumnInfo(defaultValue = "''") val fechaSincronizacion: String = "",
-    @ColumnInfo(defaultValue = "''") val ultimoError: String = ""
+    @ColumnInfo(defaultValue = "''") val ultimoError: String = "",
+    val latitud: Double? = null,
+    val longitud: Double? = null,
+    val altitud: Double? = null
 )
