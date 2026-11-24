@@ -27,8 +27,20 @@ interface VitairosApiService {
     @GET("api/trabajadores")
     suspend fun obtenerTrabajadores(): Response<List<TrabajadorDto>>
 
+    @GET("api/trabajadores/{id}")
+    suspend fun obtenerTrabajadorPorId(@Path("id") id: Long): Response<TrabajadorDto>
+
     @POST("api/trabajadores")
     suspend fun crearTrabajador(@Body trabajador: TrabajadorDto): Response<TrabajadorDto>
+
+    @PUT("api/trabajadores/{id}")
+    suspend fun actualizarTrabajador(
+        @Path("id") id: Long,
+        @Body trabajador: TrabajadorDto
+    ): Response<TrabajadorDto>
+
+    @DELETE("api/trabajadores/{id}")
+    suspend fun eliminarTrabajador(@Path("id") id: Long): Response<Unit>
 
     //microservicio reportes
     @GET("api/reportes")
@@ -69,7 +81,17 @@ object RetrofitClientProvider {
             .create(ElevationApiService::class.java)
     }
 
-    fun crearVitairosService(baseUrl: String = "http://127.0.0.1:8080/"): VitairosApiService {
+    fun crearTrabajadoresService(
+        baseUrl: String = "http://127.0.0.1:8081/"
+    ): VitairosApiService = crearVitairosService(baseUrl)
+
+    fun crearReportesService(
+        baseUrl: String = "http://127.0.0.1:8082/"
+    ): VitairosApiService = crearVitairosService(baseUrl)
+
+    fun crearVitairosService(
+        baseUrl: String = "http://127.0.0.1:8082/"
+    ): VitairosApiService {
         val normalizada = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         return Retrofit.Builder()
             .baseUrl(normalizada)

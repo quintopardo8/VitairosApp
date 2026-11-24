@@ -13,7 +13,7 @@ import java.util.Locale
 
 class ReporteSyncManager(
     private val reporteDao: ReporteDao,
-    private val apiService: VitairosApiService = RetrofitClientProvider.crearVitairosService(),
+    private val apiService: VitairosApiService = RetrofitClientProvider.crearReportesService(),
     private val elevationService: ElevationApiService = RetrofitClientProvider.elevationService
 ) {
 
@@ -93,8 +93,6 @@ class ReporteSyncManager(
             areaFaena = areaFaena,
             turno = turno,
             observaciones = observaciones,
-            rutaArchivoLocal = rutaArchivoLocal,
-            estado = "Sincronizado",
             ubicacion = puntoGeoJson,
             altitud = altitud
         )

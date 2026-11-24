@@ -1,22 +1,51 @@
 package com.vitairos.app.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vitairos.app.ui.theme.*
-import com.vitairos.app.viewmodel.ReportViewModel
-import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitairos.app.R
+import com.vitairos.app.ui.theme.VitairosDarkBackground
+import com.vitairos.app.ui.theme.VitairosSurfaceDark
+import com.vitairos.app.ui.theme.VitairosSurfaceVariant
+import com.vitairos.app.ui.theme.VitairosTealPrimary
+import com.vitairos.app.ui.theme.VitairosTextPrimary
+import com.vitairos.app.ui.theme.VitairosTextSecondary
+import com.vitairos.app.viewmodel.ReportViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,6 +54,7 @@ fun LoginScreen(
     onLoginExitoso: () -> Unit
 ) {
     val usuarioActivo by viewModel.usuarioActivo.collectAsStateWithLifecycle()
+    val usuariosDisponibles by viewModel.usuariosDisponibles.collectAsStateWithLifecycle()
     var expandirUsuarios by remember { mutableStateOf(false) }
 
     Box(
@@ -90,7 +120,7 @@ fun LoginScreen(
                         onDismissRequest = { expandirUsuarios = false },
                         modifier = Modifier.background(VitairosSurfaceDark)
                     ) {
-                        viewModel.usuariosDisponibles.forEach { user ->
+                        usuariosDisponibles.forEach { user ->
                             DropdownMenuItem(
                                 text = { Text(user, color = VitairosTextPrimary) },
                                 onClick = {
@@ -114,9 +144,11 @@ fun LoginScreen(
                         contentColor = VitairosDarkBackground
                     )
                 ) {
-                    Text("Ingresar")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(Icons.Default.ArrowForward, contentDescription = null)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Ingresar")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                    }
                 }
             }
         }

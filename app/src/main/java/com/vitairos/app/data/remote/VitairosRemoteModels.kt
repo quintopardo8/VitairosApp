@@ -18,36 +18,32 @@ data class TrabajadorDto(
     @SerializedName("id")
     val id: Long? = null,
     @SerializedName("nombre")
-    val nombre: String,
+    val nombre: String? = null,
     @SerializedName("cargo")
-    val cargo: String,
+    val cargo: String? = null,
     @SerializedName("areaAsignada")
-    val areaAsignada: String = ""
+    val areaAsignada: String? = ""
 )
 
 data class ReporteRemoteDto(
     @SerializedName("id")
-    val id: String,
+    val id: String? = null,
     @SerializedName("tipoReporte")
-    val tipoReporte: String,
+    val tipoReporte: String? = null,
     @SerializedName("procesoAsociado")
-    val procesoAsociado: String,
+    val procesoAsociado: String? = null,
     @SerializedName("fechaHora")
-    val fechaHora: String,
+    val fechaHora: String? = null,
     @SerializedName("usuario")
-    val usuario: String,
+    val usuario: String? = null,
     @SerializedName("areaFaena")
-    val areaFaena: String,
+    val areaFaena: String? = null,
     @SerializedName("turno")
-    val turno: String,
+    val turno: String? = null,
     @SerializedName("observaciones")
-    val observaciones: String,
-    @SerializedName("rutaArchivoLocal")
-    val rutaArchivoLocal: String,
-    @SerializedName("estado")
-    val estado: String,
+    val observaciones: String? = null,
     @SerializedName("ubicacion")
-    val ubicacion: GeoJsonPointDto?,
+    val ubicacion: GeoJsonPointDto? = null,
     @SerializedName("altitud")
-    val altitud: Double?
+    val altitud: Double? = null
 )

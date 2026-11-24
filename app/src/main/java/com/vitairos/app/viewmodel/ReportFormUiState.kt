@@ -22,7 +22,6 @@ data class ReportFormUiState(
     val estaGuardando: Boolean = false,
     val guardadoExitoso: Boolean = false
 ) {
-    /** Valor que se guarda en la columna rutaArchivoLocal de Room. */
     val rutaArchivoLocal: String
         get() = adjuntos.joinToString("|")
 

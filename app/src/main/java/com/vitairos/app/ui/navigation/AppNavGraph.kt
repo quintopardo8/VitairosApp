@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -14,7 +15,9 @@ import com.vitairos.app.ui.screens.DashboardScreen
 import com.vitairos.app.ui.screens.LoginScreen
 import com.vitairos.app.ui.screens.NewReportScreen
 import com.vitairos.app.ui.screens.ReportDetailScreen
+import com.vitairos.app.ui.screens.TrabajadoresScreen
 import com.vitairos.app.viewmodel.ReportViewModel
+import com.vitairos.app.viewmodel.TrabajadorViewModel
 
 object Destinos {
     const val LOGIN = "login"
@@ -22,6 +25,7 @@ object Destinos {
     const val NUEVO_REPORTE = "nuevo_reporte"
     const val EDITAR_REPORTE = "editar_reporte/{id}"
     const val DETALLE = "detalle/{id}"
+    const val TRABAJADORES = "trabajadores"
 
     fun editar(id: String) = "editar_reporte/$id"
     fun detalle(id: String) = "detalle/$id"
@@ -60,6 +64,20 @@ fun AppNavGraph(
                     navController.navigate(Destinos.LOGIN) {
                         popUpTo(Destinos.DASHBOARD) { inclusive = true }
                     }
+                },
+                onNavigateToTrabajadores = {
+                    navController.navigate(Destinos.TRABAJADORES)
+                }
+            )
+        }
+
+        composable(Destinos.TRABAJADORES) {
+            val trabajadorViewModel: TrabajadorViewModel = viewModel()
+            TrabajadoresScreen(
+                viewModel = trabajadorViewModel,
+                onNavigateBack = {
+                    viewModel.cargarOperadoresDesdeBackend()
+                    navController.popBackStack()
                 }
             )
         }

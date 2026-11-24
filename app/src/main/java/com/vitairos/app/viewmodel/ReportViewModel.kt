@@ -39,26 +39,61 @@ class ReportViewModel(
     private val repository: ReporteRepository,
     conexion: ConexionObserver,
     private val obtenerCoordenadas: suspend () -> CoordenadasActuales? = { null },
-    private val apiService: VitairosApiService = RetrofitClientProvider.crearVitairosService(),
+    private val apiService: VitairosApiService = RetrofitClientProvider.crearReportesService(),
+    private val trabajadoresService: VitairosApiService = RetrofitClientProvider.crearTrabajadoresService(),
     private val elevationService: ElevationApiService = RetrofitClientProvider.elevationService
 ) : ViewModel() {
 
     private val _mensajes = Channel<String>(Channel.BUFFERED)
     val mensajes: Flow<String> = _mensajes.receiveAsFlow()
 
-    val usuariosDisponibles = listOf(
+    private val respaldoUsuarios = listOf(
+        "Manager - Administración",
         "Carlos Mendoza - Op. Faena A",
         "Ana Soto - Op. Faena B",
         "Jorge Valenzuela - Mantención Mecánica",
         "Marcela Gómez - Prevención de Riesgos"
     )
 
-    private val _usuarioActivo = MutableStateFlow(usuariosDisponibles.first())
+    private val _usuariosDisponibles = MutableStateFlow(respaldoUsuarios)
+    val usuariosDisponibles: StateFlow<List<String>> = _usuariosDisponibles.asStateFlow()
+
+    private val _usuarioActivo = MutableStateFlow(respaldoUsuarios.first())
     val usuarioActivo: StateFlow<String> = _usuarioActivo.asStateFlow()
 
     fun seleccionarUsuario(usuario: String) {
         _usuarioActivo.value = usuario
         _uiState.update { it.copy(nombreUsuario = usuario) }
+    }
+
+    fun cargarOperadoresDesdeBackend() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val resp = trabajadoresService.obtenerTrabajadores()
+                if (resp.isSuccessful) {
+                    val nombres = resp.body()
+                        .orEmpty()
+                        .mapNotNull { t ->
+                            val nombre = t.nombre?.trim().orEmpty()
+                            if (nombre.isEmpty()) null
+                            else {
+                                val cargo = t.cargo?.trim().orEmpty()
+                                if (cargo.isNotEmpty()) "$nombre - $cargo" else nombre
+                            }
+                        }
+                        .distinct()
+                    if (nombres.isNotEmpty()) {
+                        _usuariosDisponibles.value = nombres
+                        if (_usuarioActivo.value !in nombres) {
+                            _usuarioActivo.value = nombres.first()
+                            _uiState.update { it.copy(nombreUsuario = nombres.first()) }
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Mantiene respaldoUsuarios si no hay conexión o el microservicio no responde
+            }
+        }
     }
 
     val tiposDeReporte = listOf(
@@ -422,8 +457,6 @@ class ReportViewModel(
             areaFaena = areaFaena,
             turno = turno,
             observaciones = observaciones,
-            rutaArchivoLocal = rutaArchivoLocal,
-            estado = Estados.SINCRONIZADO,
             ubicacion = punto,
             altitud = altitud
         )
@@ -486,6 +519,8 @@ class ReportViewModel(
     }
 
     init {
+        cargarOperadoresDesdeBackend()
+
         viewModelScope.launch {
             repository.obtenerReportesPorEstado(Estados.ENVIANDO).forEach {
                 repository.actualizarReporte(it.copy(estado = Estados.EN_COLA))

@@ -1,5 +1,6 @@
 package com.vitairos.app.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,11 +18,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
@@ -55,8 +56,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vitairos.app.R
 import com.vitairos.app.data.model.Estados
 import com.vitairos.app.data.model.ReporteEntity
 import com.vitairos.app.ui.components.RecogerMensajes
@@ -70,14 +74,10 @@ import com.vitairos.app.ui.theme.VitairosTealPrimary
 import com.vitairos.app.ui.theme.VitairosTextPrimary
 import com.vitairos.app.ui.theme.VitairosTextSecondary
 import com.vitairos.app.viewmodel.ReportViewModel
-import androidx.compose.foundation.Image
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import com.vitairos.app.R
 
 enum class DashboardTab(val titulo: String, val icono: ImageVector) {
     RESUMEN("Inicio", Icons.Default.Dashboard),
-    COLA("Cola", Icons.Default.List),
+    COLA("Cola", Icons.AutoMirrored.Filled.List),
     HISTORIAL("Historial", Icons.Default.History)
 }
 
@@ -87,7 +87,8 @@ fun DashboardScreen(
     viewModel: ReportViewModel,
     onNavigateToNewReport: () -> Unit,
     onOpenDetail: (String) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateToTrabajadores: () -> Unit
 ) {
     var pestañaActual by remember { mutableStateOf(DashboardTab.RESUMEN) }
 
@@ -96,6 +97,9 @@ fun DashboardScreen(
     val operadorActual by viewModel.usuarioActivo.collectAsStateWithLifecycle()
     val hayConexion by viewModel.hayConexion.collectAsStateWithLifecycle()
     val sinConexionSimulada by viewModel.sinConexionSimulada.collectAsStateWithLifecycle()
+
+    val esAdmin = operadorActual.startsWith("Manager", ignoreCase = true) ||
+            operadorActual.contains("Admin", ignoreCase = true)
 
     val snackbarHost = remember { SnackbarHostState() }
     RecogerMensajes(viewModel, snackbarHost)
@@ -115,8 +119,6 @@ fun DashboardScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-
-
                         Image(
                             painter = painterResource(id = R.drawable.vitairos),
                             contentDescription = "Logo VITAIROS",
@@ -124,18 +126,18 @@ fun DashboardScreen(
                             modifier = Modifier.height(28.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "VITAIROS Industrial AI",
-                            color = VitairosTextPrimary,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = operadorActual,
-                            color = VitairosTealPrimary,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
+                        Column {
+                            Text(
+                                text = "VITAIROS Industrial AI",
+                                color = VitairosTextPrimary,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                text = operadorActual,
+                                color = VitairosTealPrimary,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -169,7 +171,7 @@ fun DashboardScreen(
 
                     IconButton(onClick = onLogout) {
                         Icon(
-                            imageVector = Icons.Default.Logout,
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
                             contentDescription = "Cerrar Sesión",
                             tint = VitairosTextSecondary
                         )
@@ -223,9 +225,11 @@ fun DashboardScreen(
                     sinConexionSimulada = sinConexionSimulada,
                     sincronizando = sincronizando,
                     hayParaSincronizar = hayParaSincronizar,
+                    esAdmin = esAdmin,
                     onCrearReporte = onNavigateToNewReport,
                     onSincronizar = { viewModel.sincronizarCola() },
-                    onAlternarConexion = { viewModel.alternarConexionSimulada() }
+                    onAlternarConexion = { viewModel.alternarConexionSimulada() },
+                    onNavigateToTrabajadores = onNavigateToTrabajadores
                 )
 
                 DashboardTab.COLA -> VistaListaReportes(
@@ -257,9 +261,11 @@ fun VistaResumenDashboard(
     sinConexionSimulada: Boolean,
     sincronizando: Boolean,
     hayParaSincronizar: Boolean,
+    esAdmin: Boolean,
     onCrearReporte: () -> Unit,
     onSincronizar: () -> Unit,
-    onAlternarConexion: () -> Unit
+    onAlternarConexion: () -> Unit,
+    onNavigateToTrabajadores: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -282,7 +288,6 @@ fun VistaResumenDashboard(
             TarjetaMetrica("Sincronizados", sincronizadosCount.toString(), StatusSynced, Modifier.weight(1f))
             TarjetaMetrica("Errores", errorCount.toString(), StatusError, Modifier.weight(1f))
         }
-
 
         Card(
             colors = CardDefaults.cardColors(containerColor = VitairosSurfaceDark),
@@ -356,6 +361,18 @@ fun VistaResumenDashboard(
                 Icon(Icons.Default.Sync, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Sincronizar / Reintentar Ahora")
+            }
+        }
+
+        if (esAdmin) {
+            OutlinedButton(
+                onClick = onNavigateToTrabajadores,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = VitairosTealPrimary)
+            ) {
+                Text("Gestionar Trabajadores")
             }
         }
     }
