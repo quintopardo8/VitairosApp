@@ -223,6 +223,10 @@ class ReportViewModel(
             val coords = obtenerCoordenadas()
 
             if (original != null) {
+                val nuevaLat = coords?.latitud ?: original.latitud
+                val nuevaLon = coords?.longitud ?: original.longitud
+                val cambioCoordenadas = nuevaLat != original.latitud || nuevaLon != original.longitud
+
                 repository.actualizarReporte(
                     original.copy(
                         tipoReporte = formulario.tipoReporte,
@@ -232,8 +236,9 @@ class ReportViewModel(
                         observaciones = formulario.observaciones,
                         rutaArchivoLocal = formulario.rutaArchivoLocal,
                         estado = estadoFinal,
-                        latitud = coords?.latitud ?: original.latitud,
-                        longitud = coords?.longitud ?: original.longitud
+                        latitud = nuevaLat,
+                        longitud = nuevaLon,
+                        altitud = if (cambioCoordenadas) null else original.altitud
                     )
                 )
                 eliminarArchivos(adjuntosOriginales - formulario.adjuntos.toSet())
@@ -426,6 +431,7 @@ class ReportViewModel(
 
     private suspend fun enviarConReintentos(inicial: ReporteEntity): Boolean {
         var intentos = inicial.intentos
+        var ultimoErrorReal = ""
 
         for (i in 0..esperasReintento.size) {
             val antes = repository.obtenerReportePorId(inicial.id) ?: return false
@@ -434,10 +440,10 @@ class ReportViewModel(
             )
 
             intentos++
-            val (respuestaOk, detalleError) = if (hayConexion.value) {
+            val (respuestaOk, detalleError) = if (!_sinConexionSimulada.value) {
                 intentarEnviarAlBackend(antes)
             } else {
-                false to "Sin conexión con la API"
+                false to "Sin conexión simulada activa"
             }
 
             val despues = repository.obtenerReportePorId(inicial.id) ?: return false
@@ -469,7 +475,11 @@ class ReportViewModel(
             cierre.copy(
                 estado = Estados.ERROR,
                 intentos = intentos,
-                ultimoError = "Sin conexión: se agotaron los reintentos"
+                ultimoError = if (ultimoErrorReal.isNotBlank()) {
+                    "Reintentos agotados ($ultimoErrorReal)"
+                } else {
+                    "Sin conexión: se agotaron los reintentos"
+                }
             )
         )
         return false

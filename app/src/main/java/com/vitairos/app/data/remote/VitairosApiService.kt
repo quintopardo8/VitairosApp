@@ -69,7 +69,7 @@ object RetrofitClientProvider {
             .create(ElevationApiService::class.java)
     }
 
-    fun crearVitairosService(baseUrl: String = "http://10.0.2.2:8080/"): VitairosApiService {
+    fun crearVitairosService(baseUrl: String = "http://127.0.0.1:8080/"): VitairosApiService {
         val normalizada = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         return Retrofit.Builder()
             .baseUrl(normalizada)
