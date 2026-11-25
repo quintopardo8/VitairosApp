@@ -23,7 +23,7 @@ interface ElevationApiService {
 }
 
 interface VitairosApiService {
-    //microservicio trabajadores
+    // microservicio trabajadores
     @GET("api/trabajadores")
     suspend fun obtenerTrabajadores(): Response<List<TrabajadorDto>>
 
@@ -42,7 +42,7 @@ interface VitairosApiService {
     @DELETE("api/trabajadores/{id}")
     suspend fun eliminarTrabajador(@Path("id") id: Long): Response<Unit>
 
-    //microservicio reportes
+    // microservicio reportes
     @GET("api/reportes")
     suspend fun obtenerReportes(): Response<List<ReporteRemoteDto>>
 
@@ -60,8 +60,14 @@ interface VitairosApiService {
 }
 
 object RetrofitClientProvider {
+    private const val ENABLE_HTTP_LOGGING = true
+
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = if (ENABLE_HTTP_LOGGING) {
+            HttpLoggingInterceptor.Level.BODY
+        } else {
+            HttpLoggingInterceptor.Level.NONE
+        }
     }
 
     private val okHttpClient: OkHttpClient by lazy {
@@ -69,6 +75,7 @@ object RetrofitClientProvider {
             .addInterceptor(loggingInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
             .build()
     }
 

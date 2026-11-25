@@ -83,10 +83,11 @@ class ReportViewModel(
                         }
                         .distinct()
                     if (nombres.isNotEmpty()) {
-                        _usuariosDisponibles.value = nombres
+                        _usuariosDisponibles.update { nombres }
                         if (_usuarioActivo.value !in nombres) {
-                            _usuarioActivo.value = nombres.first()
-                            _uiState.update { it.copy(nombreUsuario = nombres.first()) }
+                            val primero = nombres.first()
+                            _usuarioActivo.update { primero }
+                            _uiState.update { it.copy(nombreUsuario = primero) }
                         }
                     }
                 }
@@ -261,6 +262,11 @@ class ReportViewModel(
                 val nuevaLat = coords?.latitud ?: original.latitud
                 val nuevaLon = coords?.longitud ?: original.longitud
                 val cambioCoordenadas = nuevaLat != original.latitud || nuevaLon != original.longitud
+                val nuevaAltitud = when {
+                    coords != null && cambioCoordenadas -> coords.altitud
+                    cambioCoordenadas -> null
+                    else -> original.altitud
+                }
 
                 repository.actualizarReporte(
                     original.copy(
@@ -273,7 +279,7 @@ class ReportViewModel(
                         estado = estadoFinal,
                         latitud = nuevaLat,
                         longitud = nuevaLon,
-                        altitud = if (cambioCoordenadas) null else original.altitud
+                        altitud = nuevaAltitud
                     )
                 )
                 eliminarArchivos(adjuntosOriginales - formulario.adjuntos.toSet())
@@ -293,7 +299,7 @@ class ReportViewModel(
                         intentos = 0,
                         latitud = coords?.latitud,
                         longitud = coords?.longitud,
-                        altitud = null
+                        altitud = coords?.altitud
                     )
                 )
             }
@@ -491,6 +497,11 @@ class ReportViewModel(
                 )
                 return true
             }
+
+            if (detalleError.isNotBlank()) {
+                ultimoErrorReal = detalleError
+            }
+
             if (i < esperasReintento.size) {
                 repository.actualizarReporte(
                     despues.copy(

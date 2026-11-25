@@ -20,6 +20,6 @@ class ReportViewModelFactory(
         ReportViewModel(
             repository = repository,
             conexion = conexion,
-            obtenerCoordenadas = { LocationHelper.obtenerCoordenadas(appContext) }
+            obtenerCoordenadas = { LocationHelper.obtenerCoordenadasConAltitud(appContext) }
         ) as T
 }
